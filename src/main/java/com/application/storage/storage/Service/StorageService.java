@@ -16,12 +16,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.util.ObjectUtils;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -207,17 +210,23 @@ public class StorageService {
         }
     }
 
-    private boolean isValidImage(byte[] image ) throws IOException {
+    private boolean isValidImage(byte[] image) throws IOException {
         log.info("Start isValidImage : {}", image);
 
-        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(image);
-        BufferedImage bufferedImage = ImageIO.read(byteArrayInputStream);
+        try (ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(image);
+             ImageInputStream imageInputStream = ImageIO.createImageInputStream(byteArrayInputStream)) {
 
-        if (bufferedImage == null) {
-            return false;
+            Iterator<ImageReader> imageReaders = ImageIO.getImageReaders(imageInputStream);
+
+            if (!imageReaders.hasNext()) {
+                return false;
+            }
+
+            ImageReader imageReader = imageReaders.next();
+            String typeMime = imageReader.getFormatName().toLowerCase();
+            imageReader.dispose();
+
+            return ALLOWED_MIME_TYPES.contains("image/" + typeMime);
         }
-
-        String typeMime = ImageIO.getImageReaders(bufferedImage).next().getFormatName();
-        return ALLOWED_MIME_TYPES.contains("image/" + typeMime.toLowerCase());
     }
 }
